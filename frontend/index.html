@@ -219,6 +219,19 @@
     <main class="map-viewport">
       <div id="map"></div>
 
+      <!-- Feature 3: Floating Wind Vector Indicator HUD -->
+      <div class="map-overlay wind-hud">
+        <div class="wind-hud-content">
+          <span class="wind-icon" id="windArrowIcon">↗</span>
+          <div>
+            <span class="wind-label">SURFACE DISPERSION VECTOR</span>
+            <div class="wind-data">
+              <span id="windSpeedDisplay">14 km/h</span> • <b id="windDirDisplay">NW (315°)</b>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Floating Map Overlays -->
       <div class="map-overlay legend-card">
         <h4>Microclimate AQI Index</h4>

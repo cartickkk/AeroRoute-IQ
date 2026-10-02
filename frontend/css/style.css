@@ -264,3 +264,69 @@ body {
 .lung-equiv-text b {
   color: var(--accent-cyan);
 }
+
+/* ========================================================
+   FEATURE 2 & 3: CLICK-TO-ROUTE & WIND VECTOR HUD STYLES
+   ======================================================== */
+.btn-click-route-toggle:hover {
+  background: rgba(0, 242, 254, 0.25) !important;
+  border-color: var(--accent-cyan) !important;
+}
+
+.click-route-status {
+  animation: fadeIn 0.25s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Floating Wind Vector Indicator HUD */
+.wind-hud {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 900;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.wind-hud-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wind-icon {
+  display: inline-block;
+  font-size: 1.25rem;
+  color: var(--accent-cyan);
+  font-weight: 800;
+  transform: rotate(45deg);
+  transition: transform 0.4s ease;
+}
+
+.wind-label {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  font-family: var(--font-mono);
+}
+
+.wind-data {
+  font-size: 0.82rem;
+  color: var(--text-main);
+  font-family: var(--font-mono);
+}
+
+.wind-data b {
+  color: var(--accent-cyan);
+}

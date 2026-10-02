@@ -11,6 +11,13 @@ let clickRouteEnd = null;
 let clickMarkerA = null;
 let clickMarkerB = null;
 
+// Feature 3: Surface Wind Dynamics Config (14 km/h towards SE from NW)
+const WIND_VECTOR = {
+  speedKmh: 14,
+  directionDeg: 135, // Angle of travel: blowing towards SE (135°) from NW (315°)
+  label: 'NW (315°)'
+};
+
 // Dynamic microclimate classifier matched to the dashboard legend
 function getAqiTheme(aqi) {
   if (aqi <= 50) {
@@ -39,24 +46,37 @@ function initMap() {
   hotspotLayerGroup = L.layerGroup().addTo(mapInstance);
   incidentMarkerGroup = L.layerGroup().addTo(mapInstance);
 
-  renderHotspots(CONFIG.INITIAL_HOTSPOTS);
+  renderHotspots(CONFIG.INITIAL_HOTSPOTS, 0);
 
   // Initialize Click-to-Route listener
   enableClickToRouteListener();
 }
 
-function renderHotspots(hotspots) {
+// Feature 3: Directional Downwind Pollution Plume Dispersion
+function renderHotspots(hotspots, forecastHour = 0) {
   if (!hotspotLayerGroup) return;
   hotspotLayerGroup.clearLayers();
 
-  hotspots.forEach(spot => {
-    const theme = getAqiTheme(spot.aqi);
+  const rad = (WIND_VECTOR.directionDeg * Math.PI) / 180;
+  const windDriftFactor = forecastHour * 0.0035; // Coordinate displacement per forecast hour
 
-    const circle = L.circle(spot.coords, {
+  hotspots.forEach(spot => {
+    const aqiScaled = spot.aqi + (forecastHour * 14);
+    const theme = getAqiTheme(aqiScaled);
+    const baseRadius = spot.radius + (forecastHour * 160);
+
+    // 1. Shift core emission origin downwind
+    const shiftedCenter = [
+      spot.coords[0] + Math.sin(rad) * windDriftFactor,
+      spot.coords[1] + Math.cos(rad) * windDriftFactor
+    ];
+
+    // 2. Core emission source circle
+    const circle = L.circle(shiftedCenter, {
       color: theme.color,
       fillColor: theme.color,
-      fillOpacity: 0.32,
-      radius: spot.radius,
+      fillOpacity: Math.max(0.18, 0.38 - (forecastHour * 0.05)),
+      radius: baseRadius,
       weight: 2
     });
 
@@ -64,12 +84,41 @@ function renderHotspots(hotspots) {
       <div style="font-family: inherit; font-size: 13px; line-height: 1.4;">
         <strong style="color: ${theme.color};">📍 ${spot.name}</strong><br/>
         <span>Category: <b>${theme.label}</b></span><br/>
-        <span>Real-time AQI: <b>${spot.aqi}</b></span><br/>
-        <span>Impact Buffer: <b>${spot.radius}m</b></span>
+        <span>AQI (T+${forecastHour}h): <b>${aqiScaled}</b></span><br/>
+        <span>Dispersion Radius: <b>${Math.round(baseRadius * 1.4)}m</b></span>
       </div>
     `);
 
     hotspotLayerGroup.addLayer(circle);
+
+    // 3. Directional downwind dispersion plume geometry (active when forecastHour > 0)
+    if (forecastHour > 0) {
+      const plumeTailTip = [
+        shiftedCenter[0] + Math.sin(rad) * (windDriftFactor * 2.2),
+        shiftedCenter[1] + Math.cos(rad) * (windDriftFactor * 2.2)
+      ];
+
+      const perpRad = rad + Math.PI / 2;
+      const spread = 0.0035 * (baseRadius / 1000);
+
+      const p1 = [
+        shiftedCenter[0] + Math.sin(perpRad) * spread,
+        shiftedCenter[1] + Math.cos(perpRad) * spread
+      ];
+      const p2 = [
+        shiftedCenter[0] - Math.sin(perpRad) * spread,
+        shiftedCenter[1] - Math.cos(perpRad) * spread
+      ];
+
+      const plumePolygon = L.polygon([p1, plumeTailTip, p2], {
+        color: theme.color,
+        fillColor: theme.color,
+        fillOpacity: 0.18,
+        stroke: false
+      });
+
+      hotspotLayerGroup.addLayer(plumePolygon);
+    }
   });
 }
 
@@ -150,8 +199,8 @@ function toggleClickToRoute() {
 }
 
 function resetClickPins() {
-  if (clickMarkerA && mapInstance.hasLayer(clickMarkerA)) mapInstance.removeLayer(clickMarkerA);
-  if (clickMarkerB && mapInstance.hasLayer(clickMarkerB)) mapInstance.removeLayer(clickMarkerB);
+  if (clickMarkerA && mapInstance && mapInstance.hasLayer(clickMarkerA)) mapInstance.removeLayer(clickMarkerA);
+  if (clickMarkerB && mapInstance && mapInstance.hasLayer(clickMarkerB)) mapInstance.removeLayer(clickMarkerB);
   clickMarkerA = null;
   clickMarkerB = null;
   clickRouteStart = null;
@@ -200,22 +249,18 @@ function enableClickToRouteListener() {
       }).addTo(mapInstance).bindPopup('<b>Destination Pin B</b>').openPopup();
 
       if (stepLabel) stepLabel.textContent = 'Route Calculated';
-      if (coordsLabel) coordsLabel.textContent = `Corridors generated between Pin A and Pin B.`;
+      if (coordsLabel) coordsLabel.textContent = 'Corridors generated between Pin A and Pin B.';
 
-      // Trigger dynamic path computation around active hotspots
       computeDynamicClickRoutes(clickRouteStart, clickRouteEnd);
     }
   });
 }
 
-// Algorithmic path generator: calculates cleanest path away from nearby hotspots
 function computeDynamicClickRoutes(start, end) {
-  // 1. Direct High-Exposure Route (Interpolated straight corridor)
   const midLat = (start[0] + end[0]) / 2;
   const midLng = (start[1] + end[1]) / 2;
   const directPath = [start, [midLat, midLng], end];
 
-  // 2. Identify nearest hotspot to push the clean corridor away
   let nearestHotspot = null;
   let minDist = Infinity;
 
@@ -231,7 +276,6 @@ function computeDynamicClickRoutes(start, end) {
     });
   }
 
-  // Calculate repulsion offset away from high AQI center towards eco-fringe
   let offsetLat = -0.016;
   let offsetLng = -0.018;
 
@@ -243,11 +287,16 @@ function computeDynamicClickRoutes(start, end) {
     offsetLng = (pushLng / norm) * 0.022;
   }
 
-  const greenWaypoint1 = [start[0] + (midLat - start[0]) * 0.6 + offsetLat, start[1] + (midLng - start[1]) * 0.6 + offsetLng];
-  const greenWaypoint2 = [midLat + (end[0] - midLat) * 0.4 + offsetLat, midLng + (end[1] - midLng) * 0.4 + offsetLng];
+  const greenWaypoint1 = [
+    start[0] + (midLat - start[0]) * 0.6 + offsetLat,
+    start[1] + (midLng - start[1]) * 0.6 + offsetLng
+  ];
+  const greenWaypoint2 = [
+    midLat + (end[0] - midLat) * 0.4 + offsetLat,
+    midLng + (end[1] - midLng) * 0.4 + offsetLng
+  ];
   const cleanPath = [start, greenWaypoint1, greenWaypoint2, end];
 
-  // Approximate distance and time
   const dLatTotal = end[0] - start[0];
   const dLngTotal = end[1] - start[1];
   const distKm = Math.max(3.2, Math.round(Math.sqrt(dLatTotal * dLatTotal + dLngTotal * dLngTotal) * 111 * 10) / 10);
@@ -266,10 +315,8 @@ function computeDynamicClickRoutes(start, end) {
     distanceKm: Math.round(distKm * 1.15 * 10) / 10
   };
 
-  // Render on map
   renderRoutes(fastest, green);
 
-  // Update Exposure Comparison & Inhalation cards
   const mode = document.getElementById('commuterMode')?.value || 'pedestrian';
   if (typeof updateHealthImpactCard === 'function') {
     updateHealthImpactCard(fastest, green, mode);

@@ -240,22 +240,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 8. 3-Hour Forecast Slider
+  // 8. Feature 3: 3-Hour Forecast Slider with Vector Plume Dispersion
   const slider = document.getElementById('timeForecastSlider');
   const sliderLabel = document.getElementById('forecastHourLabel');
+  const windSpeedEl = document.getElementById('windSpeedDisplay');
 
   if (slider && sliderLabel) {
     slider.addEventListener('input', (e) => {
       const hr = parseInt(e.target.value);
       sliderLabel.innerText = hr === 0 ? 'Now (T+0)' : `T+${hr} Hours`;
 
+      // Update wind speed display dynamically with forecast hour
+      if (windSpeedEl) {
+        const dynamicWindSpeed = 14 + (hr * 3);
+        windSpeedEl.innerText = `${dynamicWindSpeed} km/h`;
+      }
+
+      // Call vector dispersion engine in map.js
       if (window.CONFIG?.INITIAL_HOTSPOTS && typeof renderHotspots === 'function') {
-        const shifted = window.CONFIG.INITIAL_HOTSPOTS.map(h => ({
-          ...h,
-          radius: h.radius + (hr * 180),
-          aqi: h.aqi + (hr * 14)
-        }));
-        renderHotspots(shifted);
+        renderHotspots(window.CONFIG.INITIAL_HOTSPOTS, hr);
       }
     });
   }
