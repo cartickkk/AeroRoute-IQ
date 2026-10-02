@@ -60,32 +60,51 @@
       <!-- Control Panels (Scrollable) -->
       <div class="sidebar-body">
         
-        <!-- Module 1: Clean Corridor Routing -->
+        <!-- Module 1: Clean Corridor Routing & Click-to-Route -->
         <div class="panel-card">
-          <div class="panel-header">
-            <span class="panel-icon">🧭</span>
-            <h3>Plan Clean Corridor</h3>
+          <div class="panel-header" style="justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="panel-icon">🧭</span>
+              <h3>Plan Clean Corridor</h3>
+            </div>
+            <!-- Feature 2: Interactive Toggle Button -->
+            <button type="button" id="btnToggleClickRoute" class="btn-click-route-toggle" style="background: rgba(0, 242, 254, 0.12); border: 1px solid rgba(0, 242, 254, 0.35); color: #00f2fe; padding: 4px 9px; border-radius: 6px; font-size: 0.72rem; cursor: pointer; font-weight: 700; transition: all 0.2s ease;">
+              📍 Click on Map
+            </button>
           </div>
           <p class="panel-desc">Compare the fastest high-exposure artery vs. health-optimized green corridor.</p>
           
-          <div class="form-group">
-            <label for="originSelect">Origin Node</label>
-            <select id="originSelect" class="form-input">
-              <option value="bhopal_station">Bhopal Railway Station</option>
-              <option value="mp_nagar">MP Nagar Zone-1</option>
-              <option value="new_market">New Market Commercial Hub</option>
-              <option value="arera_colony">Arera Colony E-8</option>
-            </select>
+          <!-- Dropdown Inputs (Hidden when Click-to-Route is Active) -->
+          <div id="dropdownRoutingControls">
+            <div class="form-group">
+              <label for="originSelect">Origin Node</label>
+              <select id="originSelect" class="form-input">
+                <option value="bhopal_station">Bhopal Railway Station</option>
+                <option value="mp_nagar">MP Nagar Zone-1</option>
+                <option value="new_market">New Market Commercial Hub</option>
+                <option value="arera_colony">Arera Colony E-8</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="destSelect">Destination Node</label>
+              <select id="destSelect" class="form-input">
+                <option value="sirt_bhopal" selected>SIRT Campus, Ayodhya Bypass</option>
+                <option value="bhopal_aiims">AIIMS Bhopal</option>
+                <option value="van_vihar">Van Vihar Eco Buffer</option>
+                <option value="bhel_industrial">BHEL Industrial Zone</option>
+              </select>
+            </div>
           </div>
 
-          <div class="form-group">
-            <label for="destSelect">Destination Node</label>
-            <select id="destSelect" class="form-input">
-              <option value="sirt_bhopal" selected>SIRT Campus, Ayodhya Bypass</option>
-              <option value="bhopal_aiims">AIIMS Bhopal</option>
-              <option value="van_vihar">Van Vihar Eco Buffer</option>
-              <option value="bhel_industrial">BHEL Industrial Zone</option>
-            </select>
+          <!-- Feature 2: Click-to-Route Active Indicator Banner -->
+          <div id="clickRouteStatus" class="click-route-status" style="display: none; background: rgba(0, 242, 254, 0.08); border-left: 3px solid #00f2fe; padding: 10px; border-radius: 6px; margin-bottom: 12px;">
+            <div style="font-size: 0.75rem; font-weight: 700; color: #00f2fe; margin-bottom: 4px;" id="clickRouteStep">
+              Step 1: Click Origin on Map
+            </div>
+            <div style="font-size: 0.7rem; color: #94a3b8;" id="clickRouteCoords">
+              Click anywhere across Bhopal to pin your starting location.
+            </div>
           </div>
 
           <div class="form-group">

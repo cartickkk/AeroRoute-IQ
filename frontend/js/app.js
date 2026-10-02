@@ -120,7 +120,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 5. Compute Clean Route Button
+  // 5. Feature 2: Attach Click-to-Route Mode Button
+  const btnToggleClick = document.getElementById('btnToggleClickRoute');
+  if (btnToggleClick) {
+    btnToggleClick.addEventListener('click', () => {
+      if (typeof toggleClickToRoute === 'function') {
+        toggleClickToRoute();
+      } else {
+        console.warn('toggleClickToRoute not defined in map.js');
+      }
+    });
+  }
+
+  // 6. Compute Clean Route Button
   const btnCompute = document.getElementById('btnComputeRoutes');
   if (btnCompute) {
     btnCompute.addEventListener('click', async () => {
@@ -160,7 +172,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 6. Report Incident Button -> Dispatches to Make.com & Telegram
+  // 7. Report Incident Button -> Dispatches to Make.com & Telegram
   const btnReport = document.getElementById('btnReportIncident');
   if (btnReport) {
     btnReport.addEventListener('click', async () => {
@@ -228,7 +240,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 7. 3-Hour Forecast Slider
+  // 8. 3-Hour Forecast Slider
   const slider = document.getElementById('timeForecastSlider');
   const sliderLabel = document.getElementById('forecastHourLabel');
 
