@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AeroRoute IQ | Smart AQI Navigation & Exposure Intelligence</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/components.css" />
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar Control Center -->
+    <aside class="sidebar">
+      <header class="sidebar-header">
+        <div class="brand">
+          <div class="brand-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="brand-title">AeroRoute IQ</h1>
+            <span class="brand-tagline">Theme 2: Rising Urban AQI Mitigation</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="team-badge">Team AeroNova</div>
+          <button id="btnLogout" style="background: none; border: 1px solid rgba(244,63,94,0.3); color: #f43f5e; padding: 4px 8px; border-radius: 6px; font-size: 0.72rem; cursor: pointer; font-weight: 600;">
+            Logout
+          </button>
+        </div>
+      </header>
+
+      <!-- Live City Metric Ribbon -->
+      <section class="metric-ribbon">
+        <div class="ribbon-item">
+          <span class="ribbon-label">City Station AQI</span>
+          <span class="ribbon-val danger" id="cityAqiDisplay">218 • Poor</span>
+        </div>
+        <div class="ribbon-item">
+          <span class="ribbon-label">Peak PM2.5</span>
+          <span class="ribbon-val" id="cityPmDisplay">168 µg/m³</span>
+        </div>
+        <div class="ribbon-item">
+          <span class="ribbon-label">Hotspots</span>
+          <span class="ribbon-val warning" id="hotspotCountDisplay">4 Active</span>
+        </div>
+      </section>
+
+      <!-- Control Panels (Scrollable) -->
+      <div class="sidebar-body">
+        
+        <!-- Module 1: Clean Corridor Routing -->
+        <div class="panel-card">
+          <div class="panel-header">
+            <span class="panel-icon">🧭</span>
+            <h3>Plan Clean Corridor</h3>
+          </div>
+          <p class="panel-desc">Compare the fastest high-exposure artery vs. health-optimized green corridor.</p>
+          
+          <div class="form-group">
+            <label for="originSelect">Origin Node</label>
+            <select id="originSelect" class="form-input">
+              <option value="bhopal_station">Bhopal Railway Station</option>
+              <option value="mp_nagar">MP Nagar Zone-1</option>
+              <option value="new_market">New Market Commercial Hub</option>
+              <option value="arera_colony">Arera Colony E-8</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="destSelect">Destination Node</label>
+            <select id="destSelect" class="form-input">
+              <option value="sirt_bhopal" selected>SIRT Campus, Ayodhya Bypass</option>
+              <option value="bhopal_aiims">AIIMS Bhopal</option>
+              <option value="van_vihar">Van Vihar Eco Buffer</option>
+              <option value="bhel_industrial">BHEL Industrial Zone</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="commuterMode">Commuter Mode</label>
+            <select id="commuterMode" class="form-input">
+              <option value="pedestrian">Pedestrian / Jogger (Highest Inhalation)</option>
+              <option value="cyclist">Cyclist / Micro-mobility</option>
+              <option value="ev_fleet">EV / Auto Delivery Fleet</option>
+            </select>
+          </div>
+
+          <button id="btnComputeRoutes" class="btn-primary">
+            <span>Compute Clean Route</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+
+        <!-- Module 2: Route Comparison Metrics (Dynamic) -->
+        <div class="panel-card results-card" id="routeAnalyticsPanel">
+          <div class="panel-header">
+            <span class="panel-icon">📊</span>
+            <h3>Exposure Comparison</h3>
+          </div>
+          <div class="comparison-grid">
+            <div class="comparison-column standard">
+              <span class="col-tag">Fastest Route</span>
+              <div class="col-metric" id="fastestTime">18 min</div>
+              <div class="col-sub">Mean AQI: <b id="fastestAqi">235</b></div>
+              <div class="col-sub danger-text" id="fastestDosage">Inhaled: 42.3 µg</div>
+              <div class="col-sub" id="fastestCigarettes" style="font-size: 0.72rem; opacity: 0.85;">≈ 1.9 cigarettes</div>
+            </div>
+            <div class="comparison-column green">
+              <span class="col-tag">AeroRoute</span>
+              <div class="col-metric safe-text" id="greenTime">21 min</div>
+              <div class="col-sub">Mean AQI: <b id="greenAqi">112</b></div>
+              <div class="col-sub safe-badge" id="greenDosage">-38% Inhalation</div>
+              <div class="col-sub safe-text" id="greenCigarettes" style="font-size: 0.72rem; font-weight: 600;">≈ 1.1 cigarettes</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Module 3: Crowdsourced Micro-Emission Incident -->
+        <div class="panel-card">
+          <div class="panel-header">
+            <span class="panel-icon">🚨</span>
+            <h3>Report Hyperlocal Spike</h3>
+          </div>
+          <div class="form-group">
+            <label for="incidentType">Spike Source</label>
+            <select id="incidentType" class="form-input">
+              <option value="Open Municipal Waste Burning">Open Municipal Waste Burning</option>
+              <option value="Uncovered Construction Dust Plume">Uncovered Construction Dust Plume</option>
+              <option value="Heavy Commercial Diesel Idling">Heavy Commercial Diesel Idling</option>
+              <option value="Local Boiler / Furnace Smoke">Local Boiler / Furnace Smoke</option>
+            </select>
+          </div>
+          <button id="btnReportIncident" class="btn-secondary">
+            Broadcast Incident at Map Center
+          </button>
+        </div>
+
+        <!-- Module 4: 3-Hour Predictive AQI Slider -->
+        <div class="panel-card">
+          <div class="panel-header">
+            <span class="panel-icon">⏳</span>
+            <h3>Predictive Dispersion (+3h)</h3>
+          </div>
+          <div class="slider-row">
+            <input type="range" id="timeForecastSlider" min="0" max="3" step="1" value="0" class="forecast-slider" />
+            <span id="forecastHourLabel" class="slider-val">Now (T+0)</span>
+          </div>
+          <p class="panel-hint">Simulates dispersion based on ambient wind speed & evening traffic density.</p>
+        </div>
+
+      </div>
+
+      <footer class="sidebar-footer">
+        <span>AeroNova • Techfest IIT Bombay Zonals</span>
+      </footer>
+    </aside>
+
+    <!-- Main Map Viewport -->
+    <main class="map-viewport">
+      <div id="map"></div>
+
+      <!-- Floating Map Overlays -->
+      <div class="map-overlay legend-card">
+        <h4>Microclimate AQI Index</h4>
+        <div class="legend-scale">
+          <span class="legend-stop c-good">0-50 Good</span>
+          <span class="legend-stop c-moderate">51-100 Moderate</span>
+          <span class="legend-stop c-poor">101-200 Poor</span>
+          <span class="legend-stop c-severe">201+ Severe</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  
+  <!-- Supabase JS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.48.1/dist/umd/supabase.min.js"></script>
+
+  <!-- Application Scripts (Ordered Correctly) -->
+  <script src="js/config.js"></script>
+  <script src="js/supabase-client.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
