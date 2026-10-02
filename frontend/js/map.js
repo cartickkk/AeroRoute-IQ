@@ -4,6 +4,19 @@ let fastestRouteLayer = null;
 let greenRouteLayer = null;
 let incidentMarkerGroup = null;
 
+// Dynamic microclimate classifier matched to the dashboard legend
+function getAqiTheme(aqi) {
+  if (aqi <= 50) {
+    return { color: '#10b981', label: 'Good (Clean Eco-Buffer)' };
+  } else if (aqi <= 100) {
+    return { color: '#f59e0b', label: 'Moderate Microclimate' };
+  } else if (aqi <= 200) {
+    return { color: '#ef4444', label: 'Poor (High Exposure)' };
+  } else {
+    return { color: '#8b5cf6', label: 'Severe Industrial Plume' };
+  }
+}
+
 function initMap() {
   mapInstance = L.map('map', {
     zoomControl: false
@@ -23,21 +36,26 @@ function initMap() {
 }
 
 function renderHotspots(hotspots) {
+  if (!hotspotLayerGroup) return;
   hotspotLayerGroup.clearLayers();
 
   hotspots.forEach(spot => {
+    const theme = getAqiTheme(spot.aqi);
+
     const circle = L.circle(spot.coords, {
-      color: '#f43f5e',
-      fillColor: '#f43f5e',
-      fillOpacity: 0.28,
+      color: theme.color,
+      fillColor: theme.color,
+      fillOpacity: 0.32,
       radius: spot.radius,
-      weight: 1.5
+      weight: 2
     });
 
     circle.bindPopup(`
-      <div style="font-family:sans-serif;font-size:12px;">
-        <strong style="color:#f43f5e;">⚠️️ AQI Hotspot: ${spot.name}</strong><br/>
-        <span>Real-time AQI: <b>${spot.aqi}</b> (Severe Plume)</span>
+      <div style="font-family: inherit; font-size: 13px; line-height: 1.4;">
+        <strong style="color: ${theme.color};">📍 ${spot.name}</strong><br/>
+        <span>Category: <b>${theme.label}</b></span><br/>
+        <span>Real-time AQI: <b>${spot.aqi}</b></span><br/>
+        <span>Impact Buffer: <b>${spot.radius}m</b></span>
       </div>
     `);
 
@@ -51,7 +69,7 @@ function renderRoutes(fastest, green) {
 
   // Red dashed line for fastest (polluted) route
   fastestRouteLayer = L.polyline(fastest.path, {
-    color: '#f43f5e',
+    color: '#ef4444',
     weight: 4,
     opacity: 0.85,
     dashArray: '6, 8'
