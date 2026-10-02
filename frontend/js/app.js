@@ -5,7 +5,7 @@ async function checkAuthSession() {
     try {
       const { data: { session } } = await client.auth.getSession();
       if (!session) {
-        window.location.href = 'login.html';
+        window.location.replace(`${window.location.origin}/login.html`);
       }
     } catch (err) {
       console.warn('Auth guard verification bypassed:', err);
@@ -13,6 +13,65 @@ async function checkAuthSession() {
   }
 }
 checkAuthSession();
+
+// Ventilation Rates & Vehicle Infiltration Filter Factors
+const RESPIRATION_MODES = {
+  pedestrian: { label: 'Pedestrian', ventilationLpm: 28, filterFactor: 1.0 },
+  cyclist: { label: 'Cyclist', ventilationLpm: 45, filterFactor: 1.0 },
+  vehicle: { label: 'Closed Car / EV', ventilationLpm: 12, filterFactor: 0.35 }
+};
+
+let lastComputedRoutes = null;
+
+// Compute and render the Respiration & Health Impact card
+function updateHealthImpactCard(fastest, green, modeKey = 'pedestrian') {
+  if (!fastest || !green) return;
+  lastComputedRoutes = { fastest, green };
+
+  const mode = RESPIRATION_MODES[modeKey] || RESPIRATION_MODES.pedestrian;
+  const ventRate = mode.ventilationLpm;
+  const filter = mode.filterFactor;
+
+  // Derive PM2.5 (ug/m3) estimate from mean AQI
+  const pmFastest = (fastest.meanAqi || 200) * 0.75;
+  const pmGreen = (green.meanAqi || 100) * 0.75;
+
+  const durationFastest = fastest.durationMin || 18;
+  const durationGreen = green.durationMin || 21;
+
+  // Inhaled Dose (ug) = (ug/m3) * (L/min / 1000) * duration(min) * filterFactor
+  const fastestDoseUg = (pmFastest * (ventRate / 1000) * durationFastest * filter).toFixed(1);
+  const greenDoseUg = (pmGreen * (ventRate / 1000) * durationGreen * filter).toFixed(1);
+
+  const avertedUg = Math.max(0, (fastestDoseUg - greenDoseUg)).toFixed(1);
+  const fastestCigs = (fastestDoseUg / 22).toFixed(1);
+  const greenCigs = (greenDoseUg / 22).toFixed(1);
+  const cigarettesSaved = (avertedUg / 22).toFixed(1);
+
+  // Update DOM Elements
+  const ventEl = document.getElementById('ventilationRateVal');
+  const avertedEl = document.getElementById('pmAvertedVal');
+  const equivTextEl = document.getElementById('cigaretteEquivText');
+
+  const fastestDosageEl = document.getElementById('fastestDosage');
+  const fastestCigEl = document.getElementById('fastestCigarettes');
+  const greenDosageEl = document.getElementById('greenDosage');
+  const greenCigEl = document.getElementById('greenCigarettes');
+
+  if (ventEl) ventEl.textContent = `${ventRate} L/min`;
+  if (avertedEl) avertedEl.textContent = `${avertedUg} µg`;
+
+  if (fastestDosageEl) fastestDosageEl.innerText = `Inhaled: ${fastestDoseUg} µg`;
+  if (fastestCigEl) fastestCigEl.innerText = `≈ ${fastestCigs} cigarettes`;
+
+  const percentReduction = Math.round(((fastestDoseUg - greenDoseUg) / (fastestDoseUg || 1)) * 100);
+  if (greenDosageEl) greenDosageEl.innerText = `-${Math.max(0, percentReduction)}% Inhalation`;
+  if (greenCigEl) greenCigEl.innerText = `≈ ${greenCigs} cigarettes`;
+
+  if (equivTextEl) {
+    equivTextEl.innerHTML = `Choosing <b>AeroRoute</b> prevents inhaling an estimated <b>${avertedUg} µg</b> of toxic PM<sub>2.5</sub>, equivalent to smoking <b>${cigarettesSaved} fewer cigarettes</b>.`;
+  }
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   // 1. Initialize Map
@@ -28,7 +87,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (client && client.auth) {
         await client.auth.signOut();
       }
-      window.location.href = 'login.html';
+      window.location.replace(`${window.location.origin}/login.html`);
     });
   }
 
@@ -50,12 +109,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.warn('Failed to load city status ribbon metrics:', err);
   }
 
-  // 4. Compute Clean Route Button
+  // 4. Commuter Mode Selector Change Listener
+  const modeSelector = document.getElementById('commuterMode');
+  if (modeSelector) {
+    modeSelector.addEventListener('change', (e) => {
+      const selectedMode = e.target.value;
+      if (lastComputedRoutes) {
+        updateHealthImpactCard(lastComputedRoutes.fastest, lastComputedRoutes.green, selectedMode);
+      }
+    });
+  }
+
+  // 5. Compute Clean Route Button
   const btnCompute = document.getElementById('btnComputeRoutes');
   if (btnCompute) {
     btnCompute.addEventListener('click', async () => {
       btnCompute.disabled = true;
-      btnCompute.innerHTML = 'Computing cleanest corridor...';
+      btnCompute.innerHTML = '<span>Computing cleanest corridor...</span>';
 
       const origin = document.getElementById('originSelect')?.value || 'bhopal_station';
       const dest = document.getElementById('destSelect')?.value || 'sirt_bhopal';
@@ -67,7 +137,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           renderRoutes(result.fastest, result.green);
         }
 
-        // Update Analytics Card
+        // Update Standard Time & Mean AQI Metrics
         const fastestTimeEl = document.getElementById('fastestTime');
         const fastestAqiEl = document.getElementById('fastestAqi');
         const greenTimeEl = document.getElementById('greenTime');
@@ -78,16 +148,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (greenTimeEl) greenTimeEl.innerText = `${result.green.durationMin} min`;
         if (greenAqiEl) greenAqiEl.innerText = result.green.meanAqi;
 
-        // Inhalation Dosage & Cigarette Equivalence (if available in payload)
-        const fastestDosageEl = document.getElementById('fastestDosage');
-        const fastestCigEl = document.getElementById('fastestCigarettes');
-        const greenDosageEl = document.getElementById('greenDosage');
-        const greenCigEl = document.getElementById('greenCigarettes');
-
-        if (fastestDosageEl && result.fastest.inhaledUg) fastestDosageEl.innerText = `Inhaled: ${result.fastest.inhaledUg} µg`;
-        if (fastestCigEl && result.fastest.cigarettesEq) fastestCigEl.innerText = `≈ ${result.fastest.cigarettesEq} cigarettes`;
-        if (greenDosageEl && result.green.inhaledUg) greenDosageEl.innerText = `Inhaled: ${result.green.inhaledUg} µg`;
-        if (greenCigEl && result.green.cigarettesEq) greenCigEl.innerText = `≈ ${result.green.cigarettesEq} cigarettes`;
+        // Update Biological Respiration & Health Impact
+        updateHealthImpactCard(result.fastest, result.green, mode);
 
       } catch (err) {
         console.error('Route computation failed:', err);
@@ -98,11 +160,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 5. Report Incident Button -> Dispatches to Make.com & Telegram
+  // 6. Report Incident Button -> Dispatches to Make.com & Telegram
   const btnReport = document.getElementById('btnReportIncident');
   if (btnReport) {
     btnReport.addEventListener('click', async () => {
-      // Determine map coordinates
       const activeMap = (typeof mapInstance !== 'undefined') ? mapInstance : ((typeof map !== 'undefined') ? map : null);
       const center = (activeMap && typeof activeMap.getCenter === 'function') 
         ? activeMap.getCenter() 
@@ -156,7 +217,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         alert(`🚨 Incident Broadcast Sent!\n\nHazard: ${label}\nLocation: ${locationStr}\n\nAutomated dispatch sent to Telegram channel.`);
       } catch (err) {
         console.error('Make.com Incident Dispatch Error:', err);
-        // Fallback: still show marker locally if offline or webhook fails
         if (typeof addIncidentMarker === 'function') {
           addIncidentMarker(center, label);
         }
@@ -168,7 +228,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 6. 3-Hour Forecast Slider
+  // 7. 3-Hour Forecast Slider
   const slider = document.getElementById('timeForecastSlider');
   const sliderLabel = document.getElementById('forecastHourLabel');
 
