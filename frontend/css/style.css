@@ -286,12 +286,12 @@ body {
 .wind-hud {
   position: absolute;
   top: 20px;
-  left: 20px;
-  z-index: 900;
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  right: 60px; /* Positioned on the top-right of the map view */
+  z-index: 999;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(0, 242, 254, 0.25);
   border-radius: var(--radius-sm);
-  padding: 8px 12px;
+  padding: 8px 14px;
   backdrop-filter: blur(10px);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   pointer-events: none;
