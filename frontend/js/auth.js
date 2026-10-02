@@ -34,9 +34,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     alertBox.classList.remove('hidden');
   }
 
+  function clearAlert() {
+    if (!alertBox) return;
+    alertBox.textContent = '';
+    alertBox.classList.add('hidden');
+  }
+
+  // Production-safe URL navigation helper
+  function getDashboardUrl() {
+    return `${window.location.origin}/index.html`;
+  }
+
+  function getLoginUrl() {
+    return `${window.location.origin}/login.html`;
+  }
+
   const client = getClient();
 
-  // 1. Detect if the user arrived via a Password Recovery Link
+  // 1. Password Recovery listener
   if (client && client.auth) {
     client.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
@@ -48,14 +63,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           submitBtn.style.display = 'block';
         }
 
-        // Hide unnecessary sections cleanly using wrapper IDs
         if (groupEmail) groupEmail.style.display = 'none';
         if (groupAux) groupAux.style.display = 'none';
         if (groupDivider) groupDivider.style.display = 'none';
         if (groupGoogle) groupGoogle.style.display = 'none';
         if (groupFooter) groupFooter.style.display = 'none';
 
-        // Keep password field explicitly visible and styled
         if (groupPassword) groupPassword.style.display = 'block';
         if (passwordLabel) passwordLabel.textContent = 'Enter New Password';
 
@@ -70,37 +83,40 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
-    // Auto-redirect ONLY if NOT in recovery mode
-    const hash = window.location.hash;
+    // Auto-redirect to dashboard ONLY if user already has an active session and is NOT resetting
+    const hash = window.location.hash || '';
     const isRecoveryHash = hash.includes('type=recovery');
 
     if (!isRecoveryHash) {
       try {
         const { data: { session } } = await client.auth.getSession();
         if (session) {
-          const targetUrl = window.location.href.replace(/login\.html.*/, 'index.html');
-          window.location.replace(targetUrl);
+          window.location.replace(getDashboardUrl());
           return;
         }
       } catch (e) {
-        console.warn("Session check bypassed:", e);
+        console.warn('Session check bypassed:', e);
       }
     }
   }
 
-  // Password visibility toggle
+  // 2. Password visibility toggle
   if (togglePassBtn && passwordInput) {
-    togglePassBtn.addEventListener('click', () => {
+    togglePassBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       const isPassword = passwordInput.getAttribute('type') === 'password';
       passwordInput.setAttribute('type', isPassword ? 'text' : 'password');
     });
   }
 
-  // Switch between Login and Sign Up
+  // 3. Switch between Login and Sign Up
   if (toggleModeLink) {
     toggleModeLink.addEventListener('click', (e) => {
       e.preventDefault();
       if (isResetMode) return;
+      clearAlert();
+
       isSignUpMode = !isSignUpMode;
       if (isSignUpMode) {
         if (heading) heading.textContent = 'Create Operator Account';
@@ -115,19 +131,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         toggleModeLink.textContent = 'Sign Up';
         if (groupAux) groupAux.style.display = 'block';
       }
-      if (alertBox) alertBox.classList.add('hidden');
     });
   }
 
-  // Handle Forgot Password link click
+  // 4. Handle Forgot Password link click
   if (forgotPasswordLink) {
     forgotPasswordLink.addEventListener('click', async (e) => {
       e.preventDefault();
-      const email = emailInput.value.trim();
+      clearAlert();
 
+      const email = emailInput ? emailInput.value.trim() : '';
       if (!email) {
         showAlert('Please enter your email address in the field above first.');
-        emailInput.focus();
+        if (emailInput) emailInput.focus();
         return;
       }
 
@@ -139,10 +155,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       try {
         showAlert('Sending password recovery email...', false);
-        const redirectTarget = window.location.href.replace(/login\.html.*/, 'login.html');
-
         const { error } = await activeClient.auth.resetPasswordForEmail(email, {
-          redirectTo: redirectTarget
+          redirectTo: getLoginUrl()
         });
 
         if (error) throw error;
@@ -153,17 +167,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Handle Form Submit (Handles Sign Up, Login, AND Password Update)
+  // 5. Handle Form Submit (Handles Sign Up, Login, and Password Update)
   if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const password = passwordInput.value;
-      const activeClient = getClient();
+      e.stopPropagation();
+      clearAlert();
 
+      const activeClient = getClient();
       if (!activeClient || !activeClient.auth) {
         showAlert('Supabase client failed to initialize.');
         return;
       }
+
+      const password = passwordInput ? passwordInput.value : '';
 
       submitBtn.disabled = true;
 
@@ -176,25 +193,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 
           showAlert('Password updated successfully! Redirecting to dashboard...', false);
           setTimeout(() => {
-            window.location.href = window.location.href.replace(/login\.html.*/, 'index.html');
-          }, 1500);
+            window.location.replace(getDashboardUrl());
+          }, 1200);
           return;
         }
 
         // CASE 2: Sign Up
-        const email = emailInput.value.trim();
+        const email = emailInput ? emailInput.value.trim() : '';
         if (isSignUpMode) {
           submitBtn.textContent = 'Creating account...';
-          const { error } = await activeClient.auth.signUp({ email, password });
+          const { data, error } = await activeClient.auth.signUp({ email, password });
           if (error) throw error;
-          showAlert('Account registered! Check email or log in.', false);
+
+          if (data?.session) {
+            window.location.replace(getDashboardUrl());
+          } else {
+            showAlert('Account registered! Please check your email to confirm or sign in.', false);
+          }
         } else {
           // CASE 3: Standard Login
           submitBtn.textContent = 'Authenticating...';
-          const { error } = await activeClient.auth.signInWithPassword({ email, password });
+          const { data, error } = await activeClient.auth.signInWithPassword({ email, password });
           if (error) throw error;
 
-          window.location.href = window.location.href.replace(/login\.html.*/, 'index.html');
+          if (data?.session) {
+            window.location.replace(getDashboardUrl());
+          }
         }
       } catch (err) {
         showAlert(err.message || 'Authentication error.');
@@ -207,9 +231,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Handle Google OAuth
+  // 6. Handle Google OAuth
   if (googleBtn) {
-    googleBtn.addEventListener('click', async () => {
+    googleBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
       const activeClient = getClient();
       if (!activeClient || !activeClient.auth) {
         showAlert('Supabase client failed to initialize.');
@@ -218,10 +243,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       try {
         googleBtn.disabled = true;
-        const redirectTarget = window.location.href.replace(/login\.html.*/, 'index.html');
         const { error } = await activeClient.auth.signInWithOAuth({
           provider: 'google',
-          options: { redirectTo: redirectTarget }
+          options: { redirectTo: getDashboardUrl() }
         });
         if (error) throw error;
       } catch (err) {
