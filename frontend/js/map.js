@@ -4,6 +4,46 @@ let fastestRouteLayer = null;
 let greenRouteLayer = null;
 let incidentMarkerGroup = null;
 
+// Feature 4: Municipal Green Buffer Layer Group & Polygons
+let greenBufferLayerGroup = null;
+
+const MUNICIPAL_GREEN_BUFFERS = [
+  {
+    name: 'Van Vihar National Eco Buffer',
+    type: 'Protected Biosphere Reserve',
+    pmDepositionBenefit: '-24%',
+    coords: [
+      [23.2380, 77.3620],
+      [23.2320, 77.3750],
+      [23.2180, 77.3820],
+      [23.2100, 77.3700],
+      [23.2200, 77.3550]
+    ]
+  },
+  {
+    name: 'Upper Lake Vegetative Fringe',
+    type: 'Riparian Wetland Buffer Zone',
+    pmDepositionBenefit: '-18%',
+    coords: [
+      [23.2500, 77.3300],
+      [23.2620, 77.3600],
+      [23.2520, 77.3750],
+      [23.2420, 77.3500]
+    ]
+  },
+  {
+    name: 'Char Imli / Arera High-Canopy Corridor',
+    type: 'Urban Forestry Canopy Belt',
+    pmDepositionBenefit: '-15%',
+    coords: [
+      [23.2250, 77.4200],
+      [23.2320, 77.4320],
+      [23.2180, 77.4380],
+      [23.2120, 77.4250]
+    ]
+  }
+];
+
 // Feature 2: Click-to-Route State & Layers
 let clickRouteMode = false;
 let clickRouteStart = null;
@@ -45,11 +85,41 @@ function initMap() {
 
   hotspotLayerGroup = L.layerGroup().addTo(mapInstance);
   incidentMarkerGroup = L.layerGroup().addTo(mapInstance);
+  greenBufferLayerGroup = L.layerGroup().addTo(mapInstance);
 
+  // Initialize features
   renderHotspots(CONFIG.INITIAL_HOTSPOTS, 0);
-
-  // Initialize Click-to-Route listener
+  renderGreenBuffers(true);
   enableClickToRouteListener();
+}
+
+// Feature 4: Render / Toggle Municipal Green Buffers
+function renderGreenBuffers(isVisible) {
+  if (!greenBufferLayerGroup) return;
+  greenBufferLayerGroup.clearLayers();
+
+  if (!isVisible) return;
+
+  MUNICIPAL_GREEN_BUFFERS.forEach(buffer => {
+    const polygon = L.polygon(buffer.coords, {
+      color: '#10b981',
+      fillColor: '#10b981',
+      fillOpacity: 0.22,
+      weight: 2,
+      dashArray: '5, 6'
+    });
+
+    polygon.bindPopup(`
+      <div style="font-family: inherit; font-size: 13px; line-height: 1.45;">
+        <strong style="color: #10b981;">🌲 ${buffer.name}</strong><br/>
+        <span>Zone: <b>${buffer.type}</b></span><br/>
+        <span>Deposition Impact: <b style="color:#34d399;">${buffer.pmDepositionBenefit} PM Exposure</b></span><br/>
+        <span style="font-size: 11px; color: #94a3b8;">High-density canopy bio-shield</span>
+      </div>
+    `);
+
+    greenBufferLayerGroup.addLayer(polygon);
+  });
 }
 
 // Feature 3: Directional Downwind Pollution Plume Dispersion
@@ -58,7 +128,7 @@ function renderHotspots(hotspots, forecastHour = 0) {
   hotspotLayerGroup.clearLayers();
 
   const rad = (WIND_VECTOR.directionDeg * Math.PI) / 180;
-  const windDriftFactor = forecastHour * 0.0035; // Coordinate displacement per forecast hour
+  const windDriftFactor = forecastHour * 0.0035;
 
   hotspots.forEach(spot => {
     const aqiScaled = spot.aqi + (forecastHour * 14);
@@ -91,7 +161,7 @@ function renderHotspots(hotspots, forecastHour = 0) {
 
     hotspotLayerGroup.addLayer(circle);
 
-    // 3. Directional downwind dispersion plume geometry (active when forecastHour > 0)
+    // 3. Directional downwind dispersion plume geometry
     if (forecastHour > 0) {
       const plumeTailTip = [
         shiftedCenter[0] + Math.sin(rad) * (windDriftFactor * 2.2),
@@ -130,7 +200,6 @@ function renderRoutes(fastest, green) {
     mapInstance.removeLayer(greenRouteLayer);
   }
 
-  // Red dashed line for fastest (polluted) route
   fastestRouteLayer = L.polyline(fastest.path, {
     color: '#ef4444',
     weight: 4,
@@ -138,7 +207,6 @@ function renderRoutes(fastest, green) {
     dashArray: '6, 8'
   }).addTo(mapInstance).bindPopup(`<b>Fastest Artery:</b> ${fastest.durationMin} min | AQI: ${fastest.meanAqi}`);
 
-  // Cyan glowing solid line for green route
   greenRouteLayer = L.polyline(green.path, {
     color: '#00f2fe',
     weight: 5,
@@ -217,7 +285,7 @@ function enableClickToRouteListener() {
     const stepLabel = document.getElementById('clickRouteStep');
     const coordsLabel = document.getElementById('clickRouteCoords');
 
-    // Click 1: Place Origin (Pin A)
+    // Click 1: Origin (Pin A)
     if (!clickRouteStart) {
       clickRouteStart = [lat, lng];
 
@@ -235,7 +303,7 @@ function enableClickToRouteListener() {
       return;
     }
 
-    // Click 2: Place Destination (Pin B) & Calculate Corridor
+    // Click 2: Destination (Pin B)
     if (!clickRouteEnd) {
       clickRouteEnd = [lat, lng];
 

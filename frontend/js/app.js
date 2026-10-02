@@ -240,7 +240,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 8. Feature 3: 3-Hour Forecast Slider with Vector Plume Dispersion
+  // 8. Feature 4: Municipal Green Buffer Layer Toggle
+  const toggleBuffers = document.getElementById('toggleGreenBuffers');
+  if (toggleBuffers) {
+    toggleBuffers.addEventListener('change', (e) => {
+      if (typeof renderGreenBuffers === 'function') {
+        renderGreenBuffers(e.target.checked);
+      } else {
+        console.warn('renderGreenBuffers not defined in map.js');
+      }
+    });
+  }
+
+  // 9. Feature 3: 3-Hour Forecast Slider with Vector Plume Dispersion
   const slider = document.getElementById('timeForecastSlider');
   const sliderLabel = document.getElementById('forecastHourLabel');
   const windSpeedEl = document.getElementById('windSpeedDisplay');
